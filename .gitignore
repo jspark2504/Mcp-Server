@@ -444,3 +444,4 @@ logs/
 
 # Serena
 .serena/
+.env
