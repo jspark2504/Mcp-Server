@@ -1,23 +1,9 @@
-import os
-from dotenv import load_dotenv
-
-from board.adapter.input.web.board_router import board_router
-from config.database.session import Base, engine
-
-load_dotenv()
+"""
+메인 진입점.
+이미지 예시처럼 MCP 서버를 HTTP(0.0.0.0:8000)로 실행합니다.
+"""
+from server import mcp
 
 
-from fastapi import FastAPI
-
-app = FastAPI()
-
-
-app.include_router(board_router, prefix="/board")
-# 앱 실행
 if __name__ == "__main__":
-    import uvicorn
-    host = os.getenv("APP_HOST")
-    port = int(os.getenv("APP_PORT"))
-    Base.metadata.drop_all(bind=engine)
-    Base.metadata.create_all(bind=engine)
-    uvicorn.run(app, host=host, port=port)
+    mcp.run(transport="http", host="0.0.0.0", port=8000)
