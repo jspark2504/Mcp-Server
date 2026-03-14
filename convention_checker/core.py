@@ -247,7 +247,7 @@ def check_api_conventions(local_path: Optional[str] = None, git_url: Optional[st
                 continue
 
             # 아주 단순한 휴리스틱: 공통 래퍼가 아니라 primitive/도메인을 바로 반환하는 패턴 후보
-            if re.search(r"public\\s+[A-Z][A-Za-z0-9_<>]*\\s+\\w+\\(", text) and not (
+            if re.search(r"public\\s+[A-Z][A-Za-z0-9_<>]*\\s+\\w+\(", text) and not (
                 "ResponseEntity" in text or "ApiResponse" in text
             ):
                 possible_raw_responses.append(rel)

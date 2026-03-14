@@ -12,7 +12,8 @@ from typing import Any, Dict, List, Optional
 from mcp.server.fastmcp import FastMCP
 
 from convention_checker import core
-
+from tools.python.analyze_project import analyze_python_project
+from tools.java.analyze_project import analyze_java_project
 import sys
 
 from datetime import datetime
@@ -24,7 +25,7 @@ print("THIS SERVER LOADED")
 
 @mcp.tool()
 def ping() -> str:
-    return "pongs"
+    return "pongs MCP"
 
 @mcp.tool()
 def analyze_structure(local_path: Optional[str] = None, git_url: Optional[str] = None) -> Dict[str, Any]:
@@ -65,6 +66,13 @@ def check_architecture_boundaries(local_path: Optional[str] = None, git_url: Opt
     """Controller → Repository 직접 의존 같은 아키텍처 경계 위반 후보를 탐지합니다."""
     return core.check_architecture_boundaries(local_path=local_path, git_url=git_url)
 
+@mcp.tool()
+def analyze_python(path: str):
+    return analyze_python_project(path)
+
+@mcp.tool()
+def analyze_java(path: str):
+    return analyze_java_project(path)
 
 if __name__ == "__main__":
     mcp.run()
