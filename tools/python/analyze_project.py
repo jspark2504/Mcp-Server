@@ -18,12 +18,15 @@ def analyze_python_project(project_path: str):
         "pep8_line_length_rule",
 
         # architecture rules
+        "python_layered_router_repository_rule",
         "python_layered_router_service_rule",
         "python_layered_service_repository_rule",
+        "python_layered_package_structure_rule",
 
         # framework rules
         "fastapi_router_rule",
-        "fastapi_dependency_rule"
+        "fastapi_dependency_rule",
+        "fastapi_request_response_schema_rule",
     ]
 
     results = run_rules(python_files, rules)
