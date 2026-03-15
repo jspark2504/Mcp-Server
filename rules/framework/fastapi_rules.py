@@ -2,6 +2,7 @@ from models.result_model import create_result
 
 
 def fastapi_router_rule(file_path, imports):
+    """router 파일인데 fastapi를 import하지 않으면 위반 추가."""
 
     results = []
 
@@ -28,6 +29,7 @@ def fastapi_router_rule(file_path, imports):
 
 
 def fastapi_dependency_rule(file_path, imports):
+    """router 파일인데 fastapi 모듈을 import하지 않으면 Depends/APIRouter 등 사용 누락으로 위반 추가."""
 
     results = []
 
@@ -35,7 +37,6 @@ def fastapi_dependency_rule(file_path, imports):
 
         has_fastapi_import = any("fastapi" in imp.lower() for imp in imports)
 
-        # 아주 단순한 규칙: FastAPI 라우터 파일인데 fastapi를 import하지 않으면 경고
         if not has_fastapi_import:
             results.append(
                 create_result(
@@ -49,10 +50,8 @@ def fastapi_dependency_rule(file_path, imports):
 
 
 def fastapi_request_response_schema_rule(file_path, classes):
-    """
-    스키마/모델 파일에서 Request/Response 구분이 되어 있는지 검사.
-    클래스명이 *Request, *Response, *Schema 등으로 끝나면 구분된 것으로 봄.
-    """
+    """schema/model/dto 경로의 파일에서 클래스명이 *Request/*Response/*Schema가 하나도 없으면 위반 추가."""
+
     results = []
 
     path_lower = file_path.lower().replace("\\", "/")

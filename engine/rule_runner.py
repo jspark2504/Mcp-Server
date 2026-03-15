@@ -18,6 +18,7 @@ RULE_MODULES = [
 
 
 def load_rule_function(rule_name):
+    """RULE_MODULES 순회하며 rule_name과 같은 이름의 함수를 찾아 반환. 없으면 예외."""
 
     for module_path in RULE_MODULES:
 
@@ -31,6 +32,8 @@ def load_rule_function(rule_name):
 
 
 def _extract_java_classes(content: str):
+    """Java 소스 문자열에서 'class Foo' 패턴으로 클래스 이름만 추출해 리스트 반환."""
+
     classes = []
     for match in re.finditer(r"\bclass\s+([A-Za-z_][A-Za-z0-9_]*)", content):
         classes.append(match.group(1))
@@ -38,6 +41,8 @@ def _extract_java_classes(content: str):
 
 
 def _extract_java_methods(content: str):
+    """Java 소스에서 메서드 선언 패턴으로 메서드 이름만 추출해 리스트 반환."""
+
     methods = []
     pattern = re.compile(
         r"\b(?:public|protected|private)?\s*(?:static\s+)?"
@@ -49,6 +54,7 @@ def _extract_java_methods(content: str):
 
 
 def run_rules(files, rule_names):
+    """각 파일에 대해 내용/AST/imports 등 파싱 후 rule_names 순서대로 룰 실행해 RuleResult 리스트 반환."""
 
     results = []
 

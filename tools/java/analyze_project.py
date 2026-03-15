@@ -4,9 +4,7 @@ from engine.rule_runner import run_rules
 
 
 def analyze_java_project(project_path: str):
-    """
-    Java 프로젝트 전체 코드 분석
-    """
+    """프로젝트 루트 경로를 받아 .java 파일을 스캔한 뒤 정의된 Java/Spring 룰들을 실행해 위반 목록 반환."""
 
     # 프로젝트 로딩
     project = load_project(project_path)

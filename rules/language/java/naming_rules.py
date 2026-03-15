@@ -3,6 +3,7 @@ from models.result_model import create_result
 
 
 def java_class_naming_rule(file_path, classes):
+    """클래스명이 PascalCase가 아니면 위반 추가."""
 
     results = []
 
@@ -22,6 +23,7 @@ def java_class_naming_rule(file_path, classes):
 
 
 def java_method_naming_rule(file_path, methods):
+    """메서드명이 camelCase가 아니면 위반 추가."""
 
     results = []
 

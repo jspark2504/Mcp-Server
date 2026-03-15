@@ -2,6 +2,7 @@ from models.result_model import create_result
 
 
 def spring_controller_annotation_rule(file_path, content):
+    """controller 파일에 @RestController 또는 @Controller가 없으면 위반 추가."""
 
     results = []
 
@@ -21,6 +22,7 @@ def spring_controller_annotation_rule(file_path, content):
 
 
 def spring_service_annotation_rule(file_path, content):
+    """service 파일에 @Service가 없으면 위반 추가."""
 
     results = []
 
@@ -40,6 +42,7 @@ def spring_service_annotation_rule(file_path, content):
 
 
 def spring_repository_annotation_rule(file_path, content):
+    """repository 파일에 @Repository가 없으면 위반 추가."""
 
     results = []
 
@@ -59,6 +62,7 @@ def spring_repository_annotation_rule(file_path, content):
 
 
 def spring_controller_response_wrapper_rule(file_path, content):
+    """controller에 ResponseEntity 또는 ApiResponse/CommonResponse 사용이 없으면 위반 추가."""
 
     results = []
 

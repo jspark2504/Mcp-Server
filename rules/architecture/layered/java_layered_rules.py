@@ -2,6 +2,7 @@ from models.result_model import create_result
 
 
 def java_layered_controller_repository_rule(file_path, imports):
+    """controller 파일이 repository를 import하면 레이어 위반으로 추가."""
 
     results = []
 
@@ -23,6 +24,7 @@ def java_layered_controller_repository_rule(file_path, imports):
 
 
 def java_layered_controller_service_rule(file_path, imports):
+    """controller 파일인데 service를 import하지 않으면 위반 추가."""
 
     results = []
 
@@ -43,6 +45,7 @@ def java_layered_controller_service_rule(file_path, imports):
 
 
 def java_layered_service_repository_rule(file_path, imports):
+    """service 파일이 controller를 import하면 역의존 위반으로 추가."""
 
     results = []
 
@@ -63,6 +66,7 @@ def java_layered_service_repository_rule(file_path, imports):
 
 
 def java_service_transaction_rule(file_path, content):
+    """service 파일에 @Transactional이 없으면 트랜잭션 경계 누락으로 위반 추가."""
 
     results = []
 
@@ -83,6 +87,7 @@ def java_service_transaction_rule(file_path, content):
 
 
 def java_service_constructor_injection_rule(file_path, content):
+    """service 파일에서 @Autowired 필드 주입 사용 시 생성자 주입 권장 위반 추가."""
 
     results = []
 
@@ -103,6 +108,7 @@ def java_service_constructor_injection_rule(file_path, content):
 
 
 def java_service_return_dto_rule(file_path, content):
+    """service에서 ResponseEntity/Entity 직접 노출 흔적이 있으면 DTO 반환 권장 위반 추가."""
 
     results = []
 

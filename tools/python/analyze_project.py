@@ -4,9 +4,7 @@ from engine.rule_runner import run_rules
 
 
 def analyze_python_project(project_path: str):
-    """
-    Python 프로젝트 전체 분석
-    """
+    """프로젝트 루트 경로를 받아 .py 파일을 스캔한 뒤 정의된 Python 룰들을 실행해 위반 목록 반환."""
 
     project = load_project(project_path)
 

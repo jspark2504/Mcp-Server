@@ -2,6 +2,7 @@ from models.result_model import create_result
 
 
 def python_layered_router_repository_rule(file_path, imports):
+    """router 파일이 repository를 import하면 레이어 위반으로 추가."""
 
     results = []
 
@@ -23,6 +24,7 @@ def python_layered_router_repository_rule(file_path, imports):
 
 
 def python_layered_router_service_rule(file_path, imports):
+    """router 파일인데 service를 import하지 않으면 위반 추가."""
 
     results = []
 
@@ -43,6 +45,7 @@ def python_layered_router_service_rule(file_path, imports):
 
 
 def python_layered_service_repository_rule(file_path, imports):
+    """service 파일이 controller/router를 import하면 역의존 위반으로 추가."""
 
     results = []
 
@@ -63,9 +66,8 @@ def python_layered_service_repository_rule(file_path, imports):
 
 
 def python_layered_package_structure_rule(file_path):
-    """
-    레이어드 패키지 구조: router/controller 파일이 repository 또는 service 패키지 하위에 있으면 안 됨.
-    """
+    """경로에 repository+router/controller 또는 service+router가 같이 있으면 패키지 구조 위반 추가."""
+
     results = []
     path_norm = file_path.lower().replace("\\", "/")
 

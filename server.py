@@ -25,7 +25,9 @@ print("THIS SERVER LOADED")
 
 @mcp.tool()
 def ping() -> str:
+    """MCP 서버 생존 확인용. 'pongs MCP' 반환."""
     return "pongs MCP"
+
 
 @mcp.tool()
 def analyze_structure(local_path: Optional[str] = None, git_url: Optional[str] = None) -> Dict[str, Any]:
@@ -68,10 +70,13 @@ def check_architecture_boundaries(local_path: Optional[str] = None, git_url: Opt
 
 @mcp.tool()
 def analyze_python(path: str):
+    """Python 프로젝트 경로를 받아 컨벤션 룰(PEP8/레이어/FastAPI) 검사 후 결과 반환."""
     return analyze_python_project(path)
+
 
 @mcp.tool()
 def analyze_java(path: str):
+    """Java 프로젝트 경로를 받아 컨벤션 룰(네이밍/레이어/Spring/DTO) 검사 후 결과 반환."""
     return analyze_java_project(path)
 
 if __name__ == "__main__":

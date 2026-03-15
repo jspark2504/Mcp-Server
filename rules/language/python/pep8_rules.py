@@ -3,6 +3,7 @@ from models.result_model import create_result
 
 
 def pep8_variable_naming_rule(file_path, tree):
+    """AST에서 top-level 할당의 변수명이 snake_case가 아니면 위반 추가."""
 
     results = []
 
@@ -30,6 +31,7 @@ def pep8_variable_naming_rule(file_path, tree):
 
 
 def pep8_line_length_rule(file_path, lines):
+    """120자 초과 라인이 있으면 해당 라인 번호와 함께 위반 추가."""
 
     results = []
 

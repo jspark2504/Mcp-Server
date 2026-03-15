@@ -3,6 +3,7 @@ import os
 
 
 def scan_python_files(project):
+    """project.root_path 기준 os.walk로 하위 모든 .py 파일 경로 리스트 반환."""
 
     python_files = []
 
@@ -20,6 +21,7 @@ def scan_python_files(project):
 
 
 def scan_java_files(project):
+    """project.root_path 기준 os.walk로 하위 모든 .java 파일 경로 리스트 반환."""
 
     java_files = []
 
@@ -36,6 +38,7 @@ def scan_java_files(project):
     return java_files
 
 def read_file(file_path):
+    """파일 경로를 UTF-8로 읽어 문자열 반환. 실패 시 빈 문자열 반환."""
 
     try:
 

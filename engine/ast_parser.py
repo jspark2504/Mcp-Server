@@ -3,6 +3,8 @@ import ast
 
 
 def parse_python_ast(file_content):
+    """Python 소스 문자열을 ast.parse로 파싱해 AST 반환. 실패 시 None."""
+
     try:
         tree = ast.parse(file_content)
         return tree
@@ -11,6 +13,7 @@ def parse_python_ast(file_content):
 
 
 def extract_python_imports(tree):
+    """AST에서 Import/ImportFrom 노드를 순회해 모듈·이름 리스트 반환."""
 
     imports = []
 
@@ -28,6 +31,7 @@ def extract_python_imports(tree):
 
 
 def extract_python_classes(tree):
+    """AST에서 ClassDef 노드를 순회해 클래스 이름 리스트 반환."""
 
     classes = []
 
@@ -39,6 +43,7 @@ def extract_python_classes(tree):
 
 
 def extract_python_functions(tree):
+    """AST에서 FunctionDef 노드를 순회해 함수 이름 리스트 반환."""
 
     functions = []
 
