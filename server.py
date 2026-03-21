@@ -12,6 +12,7 @@ from typing import Any, Dict, List, Optional
 from mcp.server.fastmcp import FastMCP
 
 from convention_checker import core
+from convention_checker import spec_audit
 from tools.python.analyze_project import analyze_python_project
 from tools.java.analyze_project import analyze_java_project
 import sys
@@ -72,6 +73,18 @@ def check_architecture_boundaries(local_path: Optional[str] = None, git_url: Opt
 def analyze_python(path: str):
     """Python 프로젝트 경로를 받아 컨벤션 룰(PEP8/레이어/FastAPI) 검사 후 결과 반환."""
     return analyze_python_project(path)
+
+
+@mcp.tool()
+def audit_project_vs_docs(
+    project_path: str,
+    language: str = "python",
+    spec_glob: Optional[str] = None,
+) -> Dict[str, Any]:
+    """README/docs와 코드 대조 감사. language: python|java. 반환 요약 필드 — 상세는 README `audit_project_vs_docs` 절."""
+    return spec_audit.audit_project_vs_docs(
+        project_path, language=language, spec_glob=spec_glob
+    )
 
 
 @mcp.tool()

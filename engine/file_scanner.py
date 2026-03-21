@@ -1,13 +1,30 @@
 # 언어별 코드 파일 탐색
 import os
 
+# 소스 스캔 시 건너뛸 디렉터리 (가상환경·빌드 산출물 등)
+_SKIP_WALK_DIRS = {
+    ".git",
+    "__pycache__",
+    ".venv",
+    "venv",
+    ".mypy_cache",
+    ".tox",
+    "node_modules",
+    "dist",
+    "build",
+    "site-packages",
+    "target",
+    ".gradle",
+}
+
 
 def scan_python_files(project):
-    """project.root_path 기준 os.walk로 하위 모든 .py 파일 경로 리스트 반환."""
+    """project.root_path 기준 os.walk로 하위 .py 수집. venv/site-packages 등은 제외."""
 
     python_files = []
 
     for root, dirs, files in os.walk(project.root_path):
+        dirs[:] = [d for d in dirs if d not in _SKIP_WALK_DIRS]
 
         for file in files:
 
@@ -21,11 +38,12 @@ def scan_python_files(project):
 
 
 def scan_java_files(project):
-    """project.root_path 기준 os.walk로 하위 모든 .java 파일 경로 리스트 반환."""
+    """project.root_path 기준 os.walk로 하위 .java 수집. target/.gradle 등은 제외."""
 
     java_files = []
 
     for root, dirs, files in os.walk(project.root_path):
+        dirs[:] = [d for d in dirs if d not in _SKIP_WALK_DIRS]
 
         for file in files:
 
