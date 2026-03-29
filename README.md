@@ -1,42 +1,48 @@
 # Mcp Server
 
 MCP(Model Context Protocol) 기반 **코딩 컨벤션 / 아키텍처 규칙 점검 서버**입니다.  
-다른 Git 프로젝트(로컬 경로 또는 Git URL)를 입력하면, 구조/의존성/보안/테스트/아키텍처 규칙을 MCP **도구(tools)** 로 점검할 수 있습니다.
+다른 Git 프로젝트(로컬 경로 또는 Git URL)를 입력하면, 의존성·보안 점검과 Python/Java 규칙 분석 등을 MCP **도구(tools)** 로 호출할 수 있습니다.
 
 ## 구조
 
-- **`server.py`**  
-  FastMCP 인스턴스와 `@mcp.tool()` 로 등록된 도구 정의
-  - `analyze_structure(local_path?, git_url?)` — 레이어 디렉터리(`controller/service/repository`) 등 프로젝트 구조 점검
-  - `check_dependencies(local_path?, git_url?, forbidden_libs?)` — `lombok` 등 금지 라이브러리 사용 여부 점검
-  - `scan_secrets(local_path?, git_url?)` — `.env`, API 키/토큰 패턴 등 비밀정보 후보 탐지
-  - `check_tests(local_path?, git_url?)` — `test`/`tests` 디렉터리 존재 등 테스트 구조 점검
-  - `check_api_conventions(local_path?, git_url?)` — Controller 응답 래퍼 사용 여부 등 API 규칙 점검
-  - `check_architecture_boundaries(local_path?, git_url?)` — Controller → Repository 직접 의존 같은 아키텍처 경계 위반 후보 탐지
-  - `audit_project_vs_docs(project_path, language?, spec_glob?)` — README/docs와 코드 대조 **요약** (`language`: `python`|`java`, 상세는 README 해당 절·`analyze_python`/`analyze_java`)
+- **`server.py`** — `FastMCP` 인스턴스와 `@mcp.tool()` 로 노출되는 **MCP 도구** 정의.
 
-- **`convention_checker/core.py`**  
-  위 도구들이 사용하는 실제 검사 로직 모음 (git clone, 파일 순회, 규칙 체크 등).
+| 순번 | 한글 레이블 | 도구 이름 (호출 시) | 인자·역할 요약 |
+|:---:|:---|:---|:---|
+| 1 | 생존 확인 | `ping()` | MCP 서버 응답 확인 |
+| 2 | 금지 라이브러리 점검 | `check_dependencies(local_path?, git_url?, forbidden_libs?)` | 예: `lombok` 등 사용 여부 (`git clone` 지원) |
+| 3 | 비밀정보 후보 탐지 | `scan_secrets(local_path?, git_url?)` | `.env`, API 키·토큰 패턴 등 |
+| 4 | Python 규칙 상세 검사 | `analyze_python(path)` | PEP8·레이어·FastAPI 룰 전체 |
+| 5 | Java 규칙 상세 검사 | `analyze_java(path)` | 네이밍·레이어·Spring·DTO 등 룰 전체 |
+| 6 | README/docs ↔ 코드 요약 | `audit_project_vs_docs(project_path, language?, spec_glob?)` | `language`: `python`, `java`. 상세는 아래 해당 절·**4·5**번 도구 |
+| 7 | check.md ↔ 코드 요약 | `audit_project_vs_check_spec(project_path, language?, spec_path?)` | 기본 `spec_path` = `check.md`. 단일 스펙 문서 기준 정합성 |
+
+· **구현 모듈 (위 도구와 매핑)**
+
+| 파일 | 담당 도구 번호 | 역할 |
+|:---|:---:|:---|
+| `convention_checker/core.py` | **2**, **3** | 로컬 또는 Git URL → clone·파일 순회·의존성·시크릿 검사 |
+| `convention_checker/spec_audit.py` | **6**, **7** | 마크다운·코드 마커·룰 결과를 묶어 문서↔코드 **요약** 반환 |
+| `tools/python/analyze_project.py`, `tools/java/analyze_project.py`, `engine/*`, `rules/*` | **4**, **5** | 언어별 파일 스캔·룰 실행 (`RuleResult` 목록) |
 
 ## 실행
 
 ```bash
-# 의존성 설치
 pip install -r requirements.txt
 
-# (선택) .env 설정
-cp .env.example .env
-
-# MCP 서버 실행 (HTTP — 0.0.0.0:8000)
+# MCP stdio (Cursor / Claude Desktop 등에서 subprocess 로 붙을 때 — 기본)
 python server.py
-# 또는
+
+# MCP over HTTP (클라이언트가 HTTP MCP 를 지원할 때)
 python app/main.py
 ```
+
+`.env` 는 기본 동작에 필요하지 않습니다. 필요 시 `.env.example` 을 참고해 추가하면 됩니다.
 
 ## Cursor에서 사용
 
 1. **Cursor Settings → MCP** 에서 서버 추가
-2. 설정 예시 (로컬 HTTP):
+2. 설정 예시 (**stdio** — `python server.py` 가 표준 입출력으로 MCP 를 처리):
 
 ```json
 {
@@ -50,93 +56,126 @@ python app/main.py
 }
 ```
 
-3. 채팅/에이전트에서 다음과 같이 호출
-   - **구조 점검**: `analyze_structure` 에 `local_path` 또는 `git_url` 전달  
-   - **금지 라이브러리 점검**: `check_dependencies` 에 `forbidden_libs`(예: `["lombok"]`) 전달  
-   - **비밀키 스캔**: `scan_secrets` 호출  
-   - **테스트/아키텍처 규칙 점검**: `check_tests`, `check_api_conventions`, `check_architecture_boundaries` 호출
+3. 채팅/에이전트에서 예시
+   - **금지 라이브러리 점검**: `check_dependencies` 에 `local_path` 또는 `git_url`, 필요 시 `forbidden_libs`(예: `["lombok"]`) 전달  
+   - **비밀키 스캔**: `scan_secrets` 에 `local_path` 또는 `git_url` 전달  
+   - **Python/Java 규칙**: `analyze_python` / `analyze_java` 에 프로젝트 루트 경로 전달  
+   - **문서 대조 요약**: `audit_project_vs_docs` 호출
+   - **check.md 기준 요약**: `audit_project_vs_check_spec(project_path, language, spec_path?)` 호출
+
+## Claude에서 사용
+
+**Claude Desktop**도 Cursor 와 같이 `mcpServers` 에 `command` / `args` / `cwd` 로 서버 프로세스를 띄웁니다. **위 Cursor 절의 JSON 과 동일**하게 넣으면 됩니다(`python`/`paths` 만 본인 환경에 맞게 수정).
+
+1. 설정 파일 열기  
+   - **Windows**: `%APPDATA%\Claude\claude_desktop_config.json`  
+   - **macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`  
+2. `mcpServers` 에 `convention-checker` 항목 추가(기존 서버가 있으면 **병합**).
+3. 저장 후 **Claude Desktop 재시작** → 대화에서 MCP 도구 연결 확인.
+
+**참고**: 웹 브라우저의 Claude(chat)만으로는 로컬 MCP 를 붙이지 못합니다. HTTP MCP 는 `app/main.py` + 클라이언트의 SSE/HTTP 지원 여부에 따릅니다.
 
 ---
 
-## Python / Java 분석 툴 개요
+## 공통 분석 흐름 (Python / Java) — 도구 **4**·**5**
 
-- **서버 엔트리 (`server.py`)**
-  - `FastMCP("convention-checker")` 기반 MCP 서버.
-  - 각 `@mcp.tool()` 함수는 실제 로직을 `convention_checker.core` 또는 `tools.*` 모듈로 위임.
+`analyze_python` / `analyze_java` 안에서 아래 순서로 동작합니다.
 
-## 공통 분석 흐름 (Python / Java)
+| 단계 | 한글 | 함수·산출 |
+|:---:|:---|:---|
+| 1 | 프로젝트 로딩 | `load_project(path)` → 루트 경로·메타 정보 |
+| 2 | 파일 스캔 | Python: `scan_python_files(project)` → `.py` 전부 / Java: `scan_java_files(project)` → `.java` 전부 |
+| 3 | 룰 실행 | `run_rules(files, rules)` → 내용·AST·임포트 등 준비 후 `*_rule` 순서 호출 → **`RuleResult` 목록** |
 
-1. **프로젝트 로딩**  
-   `load_project(path)` → 루트 경로·Git 여부 등 기본 정보 생성.
+감사 도구 **6**·**7**은 내부에서 같은 분석(`analyze_*_project`)을 불러 요약만 짧게 돌려줍니다.
 
-2. **파일 스캔**  
-   - Python: `scan_python_files(project)` → `.py` 파일 전체 수집.  
-   - Java: `scan_java_files(project)` → `.java` 파일 전체 수집.
+## 문서 ↔ 코드 감사 — 도구 **6**·**7**
 
-3. **룰 실행**  
-   `run_rules(files, rules)`  
-   - 파일 내용/AST/임포트/클래스·메서드 정보 등을 준비한 뒤,  
-   - 룰 이름에 맞는 함수(`*_rule`)들을 순서대로 호출 → `RuleResult` 리스트 반환.
+**공통**: MCP 응답을 짧게 두기 위해 **위반 목록·파일 경로·긴 제안 문장은 넣지 않습니다.** 상세는 같은 `project_path`로 **도구 4** 또는 **5**를 호출하세요.
 
-## `audit_project_vs_docs` (문서 ↔ 코드 요약 감사)
+### 6. README/docs ↔ 코드 (`audit_project_vs_docs`)
 
-- **역할**: 대상 프로젝트의 `README.md`(대소문자 변형) + `docs/**/*.md`(+ 선택 `spec_glob`)를 읽고, **`language`에 따라** `analyze_python` 또는 `analyze_java` 룰 결과를 요약해 **문서와 코드가 맞는지**만 짧게 알려 줍니다.
-- **인자**: `project_path`(필수), `language`(`python` \| `java`, 기본 `python`), `spec_glob`(선택).
-- **의도적으로 짧은 반환**: MCP 응답을 최소화하기 위해 아래 필드만 반환합니다. 위반 목록·파일 경로·긴 제안 문구는 포함하지 않습니다.
-  - `situation`: `aligned` | `spec_insufficient` | `mismatch` | `unsupported_language`
-  - `summary`: 한 줄 요약(휴리스틱 기준; 위반 시 `analyze_python` / `analyze_java`로 상세 확인 안내)
-  - `violations`: 선택한 언어 룰 위반 건수
-  - `doc_files`: 읽은 Markdown 파일 개수
-  - `drift`: 문서에 안 적힌 스택 추정 시 코드 목록(쉼표 구분) 또는 `null`  
-    - Python 예: `undocumented_fastapi`, `undocumented_pydantic`, `undocumented_pytest`  
-    - Java 예: `undocumented_spring`, `undocumented_jpa`, `undocumented_junit`, `undocumented_lombok` 등
-  - `language`: 실제 적용한 언어(`python` \| `java`). `unsupported_language`일 때도 요청값이 담길 수 있음.
-- **판단 요약**
-  - **문서 부족**(`spec_insufficient`): md 파일이 없거나, 본문 합계가 약 250자 미만.
-  - **불일치**(`mismatch`): 룰 위반이 1건 이상이거나, 코드에 보이는 스택이 문서 신호와 맞지 않음(Python/Java 각각 휴리스틱).
-  - **일치**(`aligned`): 위 없음·위반 0건.
-- **상세 위반 내역**: 같은 `project_path`로 **`analyze_python`** 또는 **`analyze_java`** 호출.
-- **지원 언어**: `python`, `java`만. 그 외 `language`는 `unsupported_language`.
+| 항목 | 내용 |
+|:---|:---|
+| 한글 레이블 | README·docs 기준 요약 감사 |
+| 읽는 문서 | `README.md`(대소문자 변형 중 하나) + `docs/**/*.md` + (선택) `spec_glob` |
+| 인자 | `project_path`(필수), `language`(`python`, `java`, 기본 `python`), `spec_glob`(선택) |
+| 지원 언어 | `python`, `java`만. 그 외는 `unsupported_language` |
 
-## Python 전용 툴 (`analyze_python`)
+**반환 필드**
 
-- **대상**: Python 프로젝트 전체.
-- **언어 규칙**
-  - `pep8_variable_naming_rule`: 변수 이름 snake_case 여부.
-  - `pep8_line_length_rule`: 한 줄 길이 120자 초과 여부.
-- **레이어드 아키텍처**
-  - `python_layered_router_repository_rule`: router → repository 직접 의존 금지.
-  - `python_layered_router_service_rule`: router 는 service 레이어에 의존해야 함.
-  - `python_layered_service_repository_rule`: service ↔ router/controller 역의존 금지.
-  - `python_layered_package_structure_rule`: router/controller 파일이 repository·service 패키지 하위에 있지 않은지(패키지 구조) 검사.
-- **FastAPI 규칙**
-  - `fastapi_router_rule`: 라우터 파일이 FastAPI 라우터를 import 했는지.
-  - `fastapi_dependency_rule`: 라우터 파일이 fastapi 모듈을 사용/의존하는지.
-  - `fastapi_request_response_schema_rule`: 스키마/모델 파일에서 Request·Response·Schema 네이밍 분리 여부 검사.
+| 필드 | 한글 |
+|:---|:---|
+| `situation` | 판정 코드(아래 표) |
+| `summary` | 한 줄 요약 |
+| `violations` | 룰 위반 건수 |
+| `doc_files` | 읽은 Markdown 개수 |
+| `drift` | 문서에 없는 스택으로 추정될 때 코드 쪽 힌트(쉼표 문자열) 또는 `null` |
+| `language` | 적용 언어 |
 
-## Java 전용 툴 (`analyze_java`)
+**`situation` (6번)**
 
-- **대상**: Java/Spring 기반 프로젝트 전체.
-- **언어 규칙**
-  - `java_class_naming_rule`: 클래스 이름 PascalCase 여부.
-  - `java_method_naming_rule`: 메서드 이름 camelCase 여부.
-- **레이어드 아키텍처 / Service 규칙**
-  - `java_layered_controller_repository_rule`: controller → repository 직접 의존 금지.
-  - `java_layered_controller_service_rule`: controller 는 service 레이어에 의존해야 함.
-  - `java_layered_service_repository_rule`: service ↔ controller 역의존 금지.
-  - `java_service_transaction_rule`: service 레이어에서 데이터 변경 시 @Transactional 경계 설정 여부.
-  - `java_service_constructor_injection_rule`: service 에서 필드 주입(@Autowired) 대신 생성자 주입 사용 여부.
-  - `java_service_return_dto_rule`: service 가 영속 엔티티를 직접 노출하지 않고 DTO/응답 타입을 사용하는지 여부.
-- **DTO 규칙**
-  - `java_dto_request_response_separation_rule`: DTO 파일에서 *Request / *Response 클래스가 명확히 구분되어 있는지 여부.
-- **Spring 규칙**
-  - `spring_controller_annotation_rule`: controller 에 `@RestController` / `@Controller` 사용 여부.
-  - `spring_controller_response_wrapper_rule`: controller 가 `ResponseEntity` 또는 공통 `ApiResponse` 등 응답 래퍼를 사용하는지 여부.
-  - `spring_service_annotation_rule`: service 에 `@Service` 사용 여부.
-  - `spring_repository_annotation_rule`: repository 에 `@Repository` 사용 여부.
+| 값 | 한글 |
+|:---|:---|
+| `aligned` | 일치 |
+| `spec_insufficient` | 문서 부족(md 없음 또는 본문 합계 약 250자 미만) |
+| `mismatch` | 불일치(룰 위반 또는 문서 신호 vs 코드 마커 휴리스틱 불일치) |
+| `unsupported_language` | 지원하지 않는 `language` |
 
-## 요약
+**`drift` 예시 코드**(값 일부): Python — `undocumented_fastapi`, `undocumented_pydantic`, `undocumented_pytest` / Java — `undocumented_spring`, `undocumented_jpa`, `undocumented_junit`, `undocumented_lombok` 등.
 
-- Python/Java 각각: **프로젝트 로딩 → 파일 스캔 → 룰 실행 → 규약 위반 리스트(`RuleResult`) 반환.**
-- 룰은 전부 `*_rule` 이름으로 통일되어 있고, **언어 스타일 / 레이어드 아키텍처 / 프레임워크 사용 규칙** 세 축을 중심으로 점검합니다.
+### 7. check.md ↔ 코드 (`audit_project_vs_check_spec`)
+
+| 항목 | 내용 |
+|:---|:---|
+| 한글 레이블 | 단일 스펙 파일 기준 요약 감사 |
+| 읽는 문서 | 프로젝트 루트의 한 파일(기본 `check.md`, `spec_path`로 변경 가능) |
+| 인자 | `project_path`, `language`, `spec_path`(선택, 기본 `check.md`) |
+| 추가 반환 | `spec_file` — 실제로 읽은 스펙 파일 경로 |
+
+**`situation` (7번)** — 6번 값에 더해 **`spec_not_found`**(해당 경로에 파일 없음). 나머지 `spec_insufficient` / `mismatch` / `aligned` / `unsupported_language` 의미는 6번과 같습니다.
+
+## `check.md` 템플릿
+
+이 저장소 루트의 `check.md`가 예시입니다. 점검 대상 프로젝트에도 두고 **도구 7**로 호출하면 됩니다.
+
+## Python 룰 목록 — 도구 **`analyze_python` (4)**
+
+**대상**: Python 프로젝트 루트.
+
+| 구분 | 한글 | 룰 이름 |
+|:---|:---|:---|
+| 스타일 | 변수 snake_case | `pep8_variable_naming_rule` |
+| 스타일 | 한 줄 120자 초과 | `pep8_line_length_rule` |
+| 레이어 | router → repository 직접 금지 | `python_layered_router_repository_rule` |
+| 레이어 | router는 service에 의존 | `python_layered_router_service_rule` |
+| 레이어 | service ↔ router/controller 역의존 금지 | `python_layered_service_repository_rule` |
+| 레이어 | 패키지 구조(router/controller가 repo·service 하위에 있지 않은지) | `python_layered_package_structure_rule` |
+| FastAPI | 라우터가 FastAPI 라우터 import | `fastapi_router_rule` |
+| FastAPI | fastapi 모듈 사용·의존 | `fastapi_dependency_rule` |
+| FastAPI | Request/Response/Schema 네이밍 분리 | `fastapi_request_response_schema_rule` |
+
+## Java 룰 목록 — 도구 **`analyze_java` (5)**
+
+**대상**: Java/Spring 프로젝트 루트.
+
+| 구분 | 한글 | 룰 이름 |
+|:---|:---|:---|
+| 스타일 | 클래스 PascalCase | `java_class_naming_rule` |
+| 스타일 | 메서드 camelCase | `java_method_naming_rule` |
+| 레이어 | controller → repository 직접 금지 | `java_layered_controller_repository_rule` |
+| 레이어 | controller는 service에 의존 | `java_layered_controller_service_rule` |
+| 레이어 | service ↔ controller 역의존 금지 | `java_layered_service_repository_rule` |
+| Service | 데이터 변경 시 `@Transactional` | `java_service_transaction_rule` |
+| Service | 생성자 주입(필드 `@Autowired` 지양) | `java_service_constructor_injection_rule` |
+| Service | 엔티티 직접 반환 지양·DTO 등 | `java_service_return_dto_rule` |
+| DTO | Request/Response 구분 | `java_dto_request_response_separation_rule` |
+| Spring | `@RestController` / `@Controller` | `spring_controller_annotation_rule` |
+| Spring | `ResponseEntity` / 공통 `ApiResponse` 등 | `spring_controller_response_wrapper_rule` |
+| Spring | `@Service` | `spring_service_annotation_rule` |
+| Spring | `@Repository` | `spring_repository_annotation_rule` |
+
+## 한 줄 요약
+
+**4**·**5**: 로드 → 스캔 → `*_rule` 실행 → `RuleResult` 리스트.**6**·**7**: 문서 + 같은 분석을 묶어 **짧은 요약**만 반환.
 

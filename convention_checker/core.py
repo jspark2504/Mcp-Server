@@ -1,8 +1,4 @@
-"""
-코딩 컨벤션 / 아키텍처 규칙 점검용 순수 로직 모듈.
-
-MCP와 직접 연결되지 않은, 재사용 가능한 검사 함수들을 모아둡니다.
-"""
+"""의존성·비밀정보 등 저장소 단위 경량 검사(재사용 가능). 언어별 룰은 `tools`·`engine`에서 실행."""
 
 from __future__ import annotations
 
@@ -55,42 +51,6 @@ def walk_files(root: Path) -> List[Path]:
         for name in filenames:
             files.append(Path(dirpath) / name)
     return files
-
-
-def analyze_structure(local_path: Optional[str] = None, git_url: Optional[str] = None) -> Dict[str, Any]:
-    """
-    프로젝트 구조를 검사합니다.
-
-    - controller/service/repository 디렉터리 존재 여부
-    - src/main/java, src/test/java 등 기본 구조 확인
-    """
-    root = clone_if_needed(local_path, git_url)
-    is_tmp = git_url is not None and local_path is None
-
-    try:
-        layers = {
-            "controller": False,
-            "service": False,
-            "repository": False,
-        }
-        layer_paths: Dict[str, List[str]] = {k: [] for k in layers}
-
-        for dirpath, _, _ in os.walk(root):
-            rel = os.path.relpath(dirpath, root)
-            parts = rel.replace("\\", "/").split("/")
-            for layer in layers.keys():
-                if layer in parts:
-                    layers[layer] = True
-                    layer_paths[layer].append(rel)
-
-        return {
-            "root": str(root),
-            "layers": layers,
-            "layer_paths": layer_paths,
-        }
-    finally:
-        if is_tmp:
-            safe_cleanup(root)
 
 
 def check_dependencies(
@@ -183,117 +143,6 @@ def scan_secrets(local_path: Optional[str] = None, git_url: Optional[str] = None
             "root": str(root),
             "env_files": env_files,
             "suspected_secrets": suspected,
-        }
-    finally:
-        if is_tmp:
-            safe_cleanup(root)
-
-
-def check_tests(local_path: Optional[str] = None, git_url: Optional[str] = None) -> Dict[str, Any]:
-    """
-    테스트/커버리지 관련 기본 정책을 확인합니다.
-
-    - test / tests 디렉터리 존재 여부
-    - src/test/java 같은 경로 존재 여부
-    """
-    root = clone_if_needed(local_path, git_url)
-    is_tmp = git_url is not None and local_path is None
-
-    try:
-        has_test_dir = False
-        test_dirs: List[str] = []
-
-        for dirpath, _, _ in os.walk(root):
-            rel = os.path.relpath(dirpath, root)
-            parts = rel.replace("\\", "/").split("/")
-            if any(p in {"test", "tests"} for p in parts):
-                has_test_dir = True
-                test_dirs.append(rel)
-
-        return {
-            "root": str(root),
-            "has_test_dir": has_test_dir,
-            "test_dirs": test_dirs,
-        }
-    finally:
-        if is_tmp:
-            safe_cleanup(root)
-
-
-def check_api_conventions(local_path: Optional[str] = None, git_url: Optional[str] = None) -> Dict[str, Any]:
-    """
-    API(Controller) 관련 기본 규칙을 가볍게 확인합니다.
-
-    - controller 디렉터리 내 파일에서 응답 래퍼/공통 Response 사용 여부 후보를 수집
-      (예: ApiResponse, ResponseEntity 등 문자열 기반 탐지)
-    """
-    root = clone_if_needed(local_path, git_url)
-    is_tmp = git_url is not None and local_path is None
-
-    try:
-        controller_files: List[str] = []
-        possible_raw_responses: List[str] = []
-
-        for f in walk_files(root):
-            rel = str(f.relative_to(root))
-            parts = rel.replace("\\", "/").split("/")
-            if "controller" not in parts:
-                continue
-            controller_files.append(rel)
-
-            try:
-                text = f.read_text(encoding="utf-8", errors="ignore")
-            except Exception:
-                continue
-
-            # 아주 단순한 휴리스틱: 공통 래퍼가 아니라 primitive/도메인을 바로 반환하는 패턴 후보
-            if re.search(r"public\\s+[A-Z][A-Za-z0-9_<>]*\\s+\\w+\(", text) and not (
-                "ResponseEntity" in text or "ApiResponse" in text
-            ):
-                possible_raw_responses.append(rel)
-
-        return {
-            "root": str(root),
-            "controller_files": controller_files,
-            "possible_raw_responses": possible_raw_responses,
-        }
-    finally:
-        if is_tmp:
-            safe_cleanup(root)
-
-
-def check_architecture_boundaries(
-    local_path: Optional[str] = None, git_url: Optional[str] = None
-) -> Dict[str, Any]:
-    """
-    아키텍처 경계 규칙(예: controller가 repository 직접 호출 금지)을 간단히 검사합니다.
-
-    - controller 디렉터리 내 파일에서 'Repository' 라는 단어가 등장하는지 탐지
-      (정적 분석이 아닌 문자열 기반 후보 탐지 수준)
-    """
-    root = clone_if_needed(local_path, git_url)
-    is_tmp = git_url is not None and local_path is None
-
-    try:
-        direct_repo_calls: List[str] = []
-
-        for f in walk_files(root):
-            rel = str(f.relative_to(root))
-            parts = rel.replace("\\", "/").split("/")
-            if "controller" not in parts:
-                continue
-
-            try:
-                text = f.read_text(encoding="utf-8", errors="ignore")
-            except Exception:
-                continue
-
-            if "Repository" in text:
-                direct_repo_calls.append(rel)
-
-        return {
-            "root": str(root),
-            "controller_direct_repository_usages": direct_repo_calls,
         }
     finally:
         if is_tmp:

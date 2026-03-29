@@ -210,6 +210,59 @@ def _detail_tool_name(language: str) -> str:
     return "analyze_python" if language == "python" else "analyze_java"
 
 
+def _audit_with_docs(
+    root: Path,
+    lang: str,
+    docs: List[Tuple[str, str]],
+    spec_insufficient_reason: Optional[str] = None,
+) -> Dict[str, Any]:
+    md_concat = "\n\n".join(t for _, t in docs)
+    md_lower = md_concat.lower()
+    doc_signals = _detect_doc_signals(md_lower)
+
+    if lang == "python":
+        code_markers_combined: Dict[str, Any] = _scan_python_markers(root)
+        drift_codes = _compute_drift_python(doc_signals, code_markers_combined)
+    else:
+        code_markers_combined = _scan_java_markers(root)
+        drift_codes = _compute_drift_java(doc_signals, code_markers_combined)
+
+    rule_results = _run_analysis(lang, root)
+    violation_count = len(rule_results)
+    top_rules = _top_rule_counts(rule_results)
+
+    drift_str = ",".join(drift_codes) if drift_codes else None
+    doc_n = len(docs)
+    detail_tool = _detail_tool_name(lang)
+
+    if spec_insufficient_reason:
+        situation = "spec_insufficient"
+        summary = (
+            f"[문서부족] md={doc_n} · {spec_insufficient_reason}"
+            + (f" · 위반={violation_count}" if violation_count else "")
+        )
+    elif violation_count > 0:
+        situation = "mismatch"
+        summary = (
+            f"[불일치] 위반={violation_count} · 상위룰={top_rules} · md={doc_n} · 상세={detail_tool}"
+        )
+    elif drift_codes:
+        situation = "mismatch"
+        summary = f"[불일치] 문서미기재={drift_str} · md={doc_n} · 문서에 스택/테스트 명시"
+    else:
+        situation = "aligned"
+        summary = f"[일치] md={doc_n} · 위반=0 · lang={lang} · (휴리스틱 기준)"
+
+    return {
+        "situation": situation,
+        "summary": summary.strip(),
+        "violations": violation_count,
+        "doc_files": doc_n,
+        "drift": drift_str,
+        "language": lang,
+    }
+
+
 def audit_project_vs_docs(
     project_path: str,
     language: str = "python",
@@ -241,54 +294,58 @@ def audit_project_vs_docs(
         docs = _merge_docs(docs, _collect_glob_markdown(root, spec_glob))
 
     md_concat = "\n\n".join(t for _, t in docs)
-    md_lower = md_concat.lower()
     total_chars = len(md_concat.strip())
-    doc_signals = _detect_doc_signals(md_lower)
-
-    if lang == "python":
-        code_markers_combined: Dict[str, Any] = _scan_python_markers(root)
-        drift_codes = _compute_drift_python(doc_signals, code_markers_combined)
-    else:
-        code_markers_combined = _scan_java_markers(root)
-        drift_codes = _compute_drift_java(doc_signals, code_markers_combined)
-
     spec_insufficient_reason: Optional[str] = None
     if not docs:
         spec_insufficient_reason = "md 없음(README·docs)"
     elif total_chars < MIN_SPEC_CHARS:
         spec_insufficient_reason = f"짧음({total_chars}<{MIN_SPEC_CHARS}자)"
+    return _audit_with_docs(root, lang, docs, spec_insufficient_reason)
 
-    rule_results = _run_analysis(lang, root)
-    violation_count = len(rule_results)
-    top_rules = _top_rule_counts(rule_results)
 
-    drift_str = ",".join(drift_codes) if drift_codes else None
-    doc_n = len(docs)
-    detail_tool = _detail_tool_name(lang)
+def audit_project_vs_check_spec(
+    project_path: str,
+    language: str = "python",
+    spec_path: str = "check.md",
+) -> Dict[str, Any]:
+    """
+    프로젝트 루트의 단일 규칙 문서(check.md 등)와 코드(Python 또는 Java)를 비교해 감사 결과를 반환합니다.
+    """
+    root = Path(project_path).expanduser().resolve()
+    if not root.is_dir():
+        raise FileNotFoundError(f"프로젝트 경로가 디렉터리가 아니거나 없습니다: {root}")
 
-    if spec_insufficient_reason:
-        situation = "spec_insufficient"
-        summary = (
-            f"[문서부족] md={doc_n}·{total_chars}자 · {spec_insufficient_reason}"
-            + (f" · 위반={violation_count}" if violation_count else "")
-        )
-    elif violation_count > 0:
-        situation = "mismatch"
-        summary = (
-            f"[불일치] 위반={violation_count} · 상위룰={top_rules} · md={doc_n} · 상세={detail_tool}"
-        )
-    elif drift_codes:
-        situation = "mismatch"
-        summary = f"[불일치] 문서미기재={drift_str} · md={doc_n} · README에 스택/테스트 명시"
-    else:
-        situation = "aligned"
-        summary = f"[일치] md={doc_n} · 위반=0 · lang={lang} · (휴리스틱 기준)"
+    lang = (language or "python").strip().lower()
+    if lang not in SUPPORTED_LANGUAGES:
+        return {
+            "situation": "unsupported_language",
+            "summary": f"[미지원] language는 python|java 만 지원 · 요청={language!r}",
+            "violations": 0,
+            "doc_files": 0,
+            "drift": None,
+            "language": lang,
+            "spec_file": None,
+        }
 
-    return {
-        "situation": situation,
-        "summary": summary.strip(),
-        "violations": violation_count,
-        "doc_files": doc_n,
-        "drift": drift_str,
-        "language": lang,
-    }
+    spec_target = (root / spec_path).resolve()
+    if not spec_target.is_file():
+        return {
+            "situation": "spec_not_found",
+            "summary": f"[문서없음] spec 파일을 찾을 수 없음: {spec_path}",
+            "violations": 0,
+            "doc_files": 0,
+            "drift": None,
+            "language": lang,
+            "spec_file": str(spec_target),
+        }
+
+    spec_text = _read_text(spec_target)
+    docs = [(str(spec_target), spec_text)]
+    reason: Optional[str] = None
+    total_chars = len(spec_text.strip())
+    if total_chars < MIN_SPEC_CHARS:
+        reason = f"짧음({total_chars}<{MIN_SPEC_CHARS}자)"
+
+    result = _audit_with_docs(root, lang, docs, reason)
+    result["spec_file"] = str(spec_target)
+    return result
